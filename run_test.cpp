@@ -24,7 +24,7 @@
 
 #include "ssd.h"
 
-#define SIZE 10
+#define SIZE 2
 
 using namespace ssd;
 
@@ -32,26 +32,34 @@ int main()
 {
 	load_config();
 	print_config(NULL);
-   printf("Press ENTER to continue...");
-   getchar();
-   printf("\n");
+   	printf("Press ENTER to continue...");
+   	getchar();
+   	printf("\n");
 
 	Ssd *ssd = new Ssd();
 
-	double result;
+	double result = 0;
 
+	ssd -> io_arrive(WRITE, 123, 2, (double) 0);
+	ssd -> io_arrive(WRITE, 234, 2, (double) 0);
+	ssd -> io_arrive(WRITE, 345, 2, (double) 0);
+	ssd -> io_arrive(WRITE, 456, 2, (double) 25);
+	ssd -> io_arrive(WRITE, 567, 2, (double) 25);
+
+/*
 	for (int i = 0; i < SIZE; i++)
 	{
-		/* event_arrive(event_type, logical_address, size, start_time) */
-		result = ssd -> event_arrive(WRITE, i, 1, (double) 1);
-		result = ssd -> event_arrive(WRITE, i+10240, 1, (double) 1);
+		// event_arrive(event_type, logical_address, size, start_time)
+		result = ssd -> io_arrive(WRITE, i, 1, (double) 1);
+//		result = ssd -> event_arrive(WRITE, i+10240, 1, (double) 1);
 	}
 	for (int i = 0; i < SIZE; i++)
 	{
-		/* event_arrive(event_type, logical_address, size, start_time) */
-		result = ssd -> event_arrive(READ, 1, 1, (double) 1);
-		result = ssd -> event_arrive(READ, i, 1, (double) 1);
+		// event_arrive(event_type, logical_address, size, start_time)
+		result = ssd -> io_arrive(READ, 1, 1, (double) 1);
+//		result = ssd -> event_arrive(READ, i, 1, (double) 1);
 	}
+*/
 	delete ssd;
 	return 0;
 }

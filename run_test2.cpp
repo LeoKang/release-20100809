@@ -32,9 +32,9 @@ int main()
 {
 	load_config();
 	print_config(NULL);
-   printf("Press ENTER to continue...");
-   getchar();
-   printf("\n");
+   	printf("Press ENTER to continue...");
+   	getchar();
+   	printf("\n");
 
 	Ssd *ssd = new Ssd();
 

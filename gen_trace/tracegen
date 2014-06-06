@@ -1,0 +1,6 @@
+#!/bin/sh
+
+disksize=${1:?"Disk Size(GB) argument missing."}
+
+rm -f process_info 
+./generator $disksize | sort --key=6 -n

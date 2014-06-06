@@ -27,7 +27,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
- 
+
 #ifndef _SSD_H
 #define _SSD_H
 
@@ -39,6 +39,8 @@ namespace ssd {
 
 /* Uncomment to disable asserts for production */
 #define NDEBUG
+
+#define LOG() printf("[%s-%s():%3d]\n", __FILE__, __func__, __LINE__);
 
 
 /* some obvious typedefs for laziness */
@@ -87,7 +89,7 @@ extern const uint DIE_SIZE;
  * 	number of Blocks per Plane (size)
  * 	delay for reading from plane register
  * 	delay for writing to plane register
- * 	delay for merging is based on read, write, reg_read, reg_write 
+ * 	delay for merging is based on read, write, reg_read, reg_write
  * 		and does not need to be explicitly defined */
 extern const uint PLANE_SIZE;
 extern const double PLANE_REG_READ_DELAY;
@@ -126,7 +128,7 @@ enum block_state{FREE, ACTIVE, INACTIVE};
 /* I/O request event types
  * 	read  - read data from address
  * 	write - write data to address (page state set to valid)
- * 	erase - erase block at address (all pages in block are erased - 
+ * 	erase - erase block at address (all pages in block are erased -
  * 	                                page states set to empty)
  * 	merge - move valid pages from block at address (page state set to invalid)
  * 	           to free pages in block at merge_address */
@@ -169,6 +171,23 @@ class Ram;
 class Controller;
 class Ssd;
 
+class Cmdq;
+
+
+class Cmdq
+{
+public:
+	Cmdq();
+	~Cmdq(void);
+	void enqueue(Event &evt);
+	Event *dequeue(void);
+	void show(void);
+private:
+	uint size;
+	Event *head;
+	Event *tail;
+};
+
 /* Class to manage physical addresses for the SSD.  It was designed to have
  * public members like a struct for quick access but also have checking,
  * printing, and assignment functionality.  An instance is created for each
@@ -196,7 +215,7 @@ public:
 /* Class to manage I/O requests as events for the SSD.  It was designed to keep
  * track of an I/O request by storing its type, addressing, and timing.  The
  * SSD class creates an instance for each I/O request it receives. */
-class Event 
+class Event
 {
 public:
 	Event(enum event_type type, ulong logical_address, uint size, double start_time);
@@ -243,7 +262,7 @@ void quicksort(double *array1, double *array2, long left, long right);
 
 /* Single bus channel
  * Simulate multiple devices on 1 bus channel with variable bus transmission
- * durations for data and control delays with the Channel class.  Provide the 
+ * durations for data and control delays with the Channel class.  Provide the
  * delay times to send a control signal or 1 page of data across the bus
  * channel, the bus table size for the maximum number channel transmissions that
  * can be queued, and the maximum number of devices that can connect to the bus.
@@ -295,7 +314,7 @@ private:
 
 /* The page is the lowest level data storage unit that is the size unit of
  * requests (events).  Pages maintain their state as events modify them. */
-class Page 
+class Page
 {
 public:
 	Page(const Block &parent, double read_delay = PAGE_READ_DELAY, double write_delay = PAGE_WRITE_DELAY);
@@ -315,7 +334,7 @@ private:
 
 /* The block is the data storage hardware unit where erases are implemented.
  * Blocks maintain wear statistics for the FTL. */
-class Block 
+class Block
 {
 public:
 	Block(const Plane &parent, uint size = BLOCK_SIZE, ulong erases_remaining = BLOCK_ERASES, double erase_delay = BLOCK_ERASE_DELAY);
@@ -349,7 +368,7 @@ private:
 /* The plane is the data storage hardware unit that contains blocks.
  * Plane-level merges are implemented in the plane.  Planes maintain wear
  * statistics for the FTL. */
-class Plane 
+class Plane
 {
 public:
 	Plane(const Die &parent, uint plane_size = PLANE_SIZE, double reg_read_delay = PLANE_REG_READ_DELAY, double reg_write_delay = PLANE_REG_WRITE_DELAY);
@@ -384,7 +403,7 @@ private:
 
 /* The die is the data storage hardware unit that contains planes and is a flash
  * chip.  Dies maintain wear statistics for the FTL. */
-class Die 
+class Die
 {
 public:
 	Die(const Package &parent, Channel &channel, uint die_size = DIE_SIZE);
@@ -417,7 +436,7 @@ private:
  * package is a virtual component, events are passed through the package for
  * organizational reasons, including helping to simplify maintaining wear
  * statistics for the FTL. */
-class Package 
+class Package
 {
 public:
 	Package (const Ssd &parent, Channel &channel, uint package_size = PACKAGE_SIZE);
@@ -444,9 +463,9 @@ private:
 	double last_erase_time;
 };
 
-/* place-holder definitions for GC, WL, FTL, RAM, Controller 
+/* place-holder definitions for GC, WL, FTL, RAM, Controller
  * please make sure to keep this order when you replace with your definitions */
-class Garbage_collector 
+class Garbage_collector
 {
 public:
 	Garbage_collector(Ftl &FTL);
@@ -454,7 +473,7 @@ public:
 	enum status collect(Event &event);
 };
 
-class Wear_leveler 
+class Wear_leveler
 {
 public:
 	Wear_leveler(Ftl &FTL);
@@ -465,7 +484,7 @@ public:
 /* Ftl class has some completed functions that get info from lower-level
  * hardware.  The other functions are in place as suggestions and can
  * be changed as you wish. */
-class Ftl 
+class Ftl
 {
 public:
 	Ftl(Controller &controller);
@@ -491,7 +510,7 @@ private:
 /* This is a basic implementation that only provides delay updates to events
  * based on a delay value multiplied by the size (number of pages) needed to
  * be written. */
-class Ram 
+class Ram
 {
 public:
 	Ram(double read_delay = RAM_READ_DELAY, double write_delay = RAM_WRITE_DELAY);
@@ -511,7 +530,7 @@ private:
  *
  * The controller also provides an interface for the FTL to collect wear
  * information to perform wear-leveling.  */
-class Controller 
+class Controller
 {
 public:
 	Controller(Ssd &parent);
@@ -534,12 +553,13 @@ private:
 /* The SSD is the single main object that will be created to simulate a real
  * SSD.  Creating a SSD causes all other objects in the SSD to be created.  The
  * event_arrive method is where events will arrive from DiskSim. */
-class Ssd 
+class Ssd
 {
 public:
 	Ssd (uint ssd_size = SSD_SIZE);
 	~Ssd(void);
 	double event_arrive(enum event_type type, ulong logical_address, uint size, double start_time);
+	void io_arrive(enum event_type type, ulong logical_address, uint size, double start_time);
 	friend class Controller;
 private:
 	enum status read(Event &event);
@@ -549,7 +569,7 @@ private:
 	ulong get_erases_remaining(const Address &address) const;
 	void update_wear_stats(const Address &address);
 	void get_least_worn(Address &address) const;
-	double get_last_erase_time(const Address &address) const;	
+	double get_last_erase_time(const Address &address) const;
 	Package &get_data(void);
 	enum page_state get_state(const Address &address) const;
 	void get_free_page(Address &address) const;
@@ -557,12 +577,15 @@ private:
 	ssd::uint get_num_valid(const Address &address) const;
 	uint size;
 	Controller controller;
+	Cmdq *cmdq;
 	Ram ram;
 	Bus bus;
 	Package * const data;
 	ulong erases_remaining;
 	ulong least_worn;
 	double last_erase_time;
+//--- seungjin ------------------------------------
+	double timeline;
 };
 
 } /* end namespace ssd */

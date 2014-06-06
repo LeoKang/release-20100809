@@ -35,26 +35,27 @@ using namespace ssd;
 /* use caution when editing the initialization list - initialization actually
  * occurs in the order of declaration in the class definition and not in the
  * order listed here */
-Ssd::Ssd(uint ssd_size): 
-	size(ssd_size), 
-	controller(*this), 
-	ram(RAM_READ_DELAY, RAM_WRITE_DELAY), 
-	bus(size, BUS_CTRL_DELAY, BUS_DATA_DELAY, BUS_TABLE_SIZE, BUS_MAX_CONNECT), 
+Ssd::Ssd(uint ssd_size):
+	size(ssd_size),
+	controller(*this),
+	ram(RAM_READ_DELAY, RAM_WRITE_DELAY),
+	bus(size, BUS_CTRL_DELAY, BUS_DATA_DELAY, BUS_TABLE_SIZE, BUS_MAX_CONNECT),
 
 	/* use a const pointer (Package * const data) to use as an array
 	 * but like a reference, we cannot reseat the pointer */
-	data((Package *) malloc(ssd_size * sizeof(Package))), 
+	data((Package *) malloc(ssd_size * sizeof(Package))),
 
-	/* set erases remaining to BLOCK_ERASES to match Block constructor args 
+	/* set erases remaining to BLOCK_ERASES to match Block constructor args
 	 *	in Plane class
 	 * this is the cheap implementation but can change to pass through classes */
-	erases_remaining(BLOCK_ERASES), 
+	erases_remaining(BLOCK_ERASES),
 
 	/* assume all Planes are same so first one can start as least worn */
-	least_worn(0), 
+	least_worn(0),
 
 	/* assume hardware created at time 0 and had an implied free erasure */
-	last_erase_time(0.0)
+	last_erase_time(0.0),
+	timeline(0.0)
 {
 	uint i;
 
@@ -73,7 +74,8 @@ Ssd::Ssd(uint ssd_size):
 	{
 		(void) new (&data[i]) Package(*this, bus.get_channel(i), PACKAGE_SIZE);
 	}
-	
+	cmdq = new Cmdq();
+
 	return;
 }
 
@@ -87,7 +89,51 @@ Ssd::~Ssd(void)
 		data[i].~Package();
 	}
 	free(data);
+	delete cmdq;
+
 	return;
+}
+
+void Ssd::io_arrive(enum event_type type, ulong logical_address, uint size, double start_time)
+{
+	printf("=========================================\n");
+	LOG();
+	Event *event = NULL;
+	Event *event2 = NULL;
+
+	if((event = new Event(type, logical_address, size, start_time)) == NULL)
+	{
+		fprintf(stderr, "Ssd error: %s: could not allocate Event\n", __func__);
+		exit(MEM_ERR);
+	}
+	if((event2 = new Event(type, logical_address, size, start_time)) == NULL)
+	{
+		fprintf(stderr, "Ssd error: %s: could not allocate Event\n", __func__);
+		exit(MEM_ERR);
+	}
+
+	cmdq->enqueue(*event);
+	cmdq->show();
+	printf("event->get_logical_address() : %lu\n", event->get_logical_address());
+
+	while(start_time > timeline)
+	{
+		event2 = cmdq->dequeue();
+
+		printf("timeline : %lf\n", timeline);
+		printf("start_time : %lf\n", start_time);
+
+		printf("event2->get_event_type() : %d\n", event2->get_event_type());
+		printf("event2->get_logical_address() : %lu\n", event2->get_logical_address());
+
+		timeline += event_arrive(event2->get_event_type(), event2->get_logical_address(), event2->get_size(), event2->get_start_time());
+
+		printf("timeline : %lf\n", timeline);
+		printf("start_time : %lf\n", start_time);
+		cmdq->show();
+	}
+
+//	delete event2;
 }
 
 /* This is the function that will be called by DiskSim
@@ -105,7 +151,7 @@ double Ssd::event_arrive(enum event_type type, ulong logical_address, uint size,
 	 * handle efficiency issues for us */
 	Event *event = NULL;
 	/* STUB ONLY */
-	#if 0
+	#if 1
 	Address *address = NULL;
 	#endif
 	/* END STUB ONLY */
@@ -126,7 +172,7 @@ double Ssd::event_arrive(enum event_type type, ulong logical_address, uint size,
 
 	/* STUB ONLY
 	 * real SSD will let the FTL determine the physical address */
-	#if 0
+	#if 1
 	if((address = new Address()) == NULL)
 	{
 		fprintf(stderr, "Ssd error: %s: could not allocate Address\n", __func__);
@@ -184,7 +230,7 @@ double Ssd::event_arrive(enum event_type type, ulong logical_address, uint size,
 /* read write erase and merge should only pass on the event
  * 	the Controller should lock the bus channels
  * technically the Package is conceptual, but we keep track of statistics
- * 	and addresses with Packages, so send Events through Package but do not 
+ * 	and addresses with Packages, so send Events through Package but do not
  * 	have Package do anything but update its statistics and pass on to Die */
 enum status Ssd::read(Event &event)
 {
@@ -220,7 +266,7 @@ enum status Ssd::merge(Event &event)
 ssd::ulong Ssd::get_erases_remaining(const Address &address) const
 {
 	assert (data != NULL);
-	
+
 	if (address.package < size && address.valid >= PACKAGE)
 		return data[address.package].get_erases_remaining(address);
 	else return erases_remaining;
@@ -274,13 +320,13 @@ void Ssd::get_free_page(Address &address) const
 }
 
 ssd::uint Ssd::get_num_free(const Address &address) const
-{  
+{
 	return 0;
 /* 	return data[address.package].get_num_free(address); */
 }
 
 ssd::uint Ssd::get_num_valid(const Address &address) const
-{  
+{
 	assert(address.valid >= PACKAGE);
 	return data[address.package].get_num_valid(address);
 }

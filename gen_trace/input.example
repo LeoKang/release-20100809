@@ -1,0 +1,5 @@
+pattern		file_size(MB)	io_size(sector)	bandwidth(Mbps)	io횟수	inter_arrival_time(jiffies)
+periodic	10		128		9
+random		10		2~128				100	30	
+sequential	30		128
+periodic	50		128		3

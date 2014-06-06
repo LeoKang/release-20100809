@@ -1,0 +1,7 @@
+pattern: random
+File_Size: 1024 MB
+I/O 횟수: 100 회
+Inter Arrival Time: 0.300000 jiffies
+I/O Range: 8 - 256 sectors
+File Size (by sector): 2097152
+========================================================
